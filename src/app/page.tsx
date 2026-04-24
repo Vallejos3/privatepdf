@@ -150,23 +150,32 @@ export default function Home() {
       <main className="max-w-4xl mx-auto bg-white rounded-lg p-6">
         <h1 className="text-2xl font-bold mb-4">PDF Tool</h1>
         
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Tool:</label>
-          <select
-            value={tool}
-            onChange={(e) => {
-              setTool(e.target.value as Tool);
-              setFiles([]);
-              setStatus('');
-            }}
-            className="border rounded p-2"
-          >
-            <option value="merge">Merge PDFs</option>
-            <option value="split">Split PDF</option>
-            <option value="rotate">Rotate PDF</option>
-            <option value="watermark">Add Watermark</option>
-            <option value="optimize">Optimize PDF</option>
-          </select>
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-3">Tool:</label>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {(['merge', 'split', 'rotate', 'watermark', 'optimize'] as Tool[]).map(t => (
+              <button
+                key={t}
+                onClick={() => {
+                  setTool(t);
+                  setFiles([]);
+                  setStatus('');
+                }}
+                className={`relative px-3 py-2 rounded text-sm font-medium transition ${
+                  tool === t 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {files.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {files.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {tool === 'split' && (
