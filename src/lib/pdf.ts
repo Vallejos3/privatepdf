@@ -160,3 +160,48 @@ export async function optimizePdf(file: File): Promise<Uint8Array> {
     throw error;
   }
 }
+
+export async function splitPdfAsZip(file: File, range: string): Promise<Blob> {
+  try {
+    const { zip } = await import('fflate');
+    const pdf = await loadPdfSafe(file);
+    const pageCount = pdf.getPageCount();
+    const validPages = filterValidPageRange(range, pageCount);
+    
+    if (validPages.length === 0) {
+      throw new Error(`Page range invalid for this PDF. Enter pages between 1 and ${pageCount}.`);
+    }
+
+    const files: { [key: string]: Uint8Array } = {};
+
+    for (const pageNum of validPages) {
+      const newPdf = await PDFDocument.create();
+      const pageIndex = pageNum - 1;
+      const copiedPages = await newPdf.copyPages(pdf, [pageIndex]);
+      copiedPages.forEach(page => newPdf.addPage(page));
+      const pdfBytes = newPdf.save();
+      files[`page_${pageNum}.pdf`] = pdfBytes;
+    }
+
+    return new Promise((resolve, reject) => {
+      zip(files, (err, data) => {
+        if (err) {
+          reject(new Error('Failed to create ZIP file.'));
+        } else {
+          resolve(new Blob([data], { type: 'application/zip' }));
+        }
+      });
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('corrupted') || error.message.includes('encrypted')) {
+        throw new Error('PDF is corrupted or encrypted. Please provide a valid PDF.');
+      }
+      if (error.message.includes('memory') || error.message.includes('limit')) {
+        throw new Error('PDF is too large to process. Try a smaller file.');
+      }
+      throw error;
+    }
+    throw error;
+  }
+}

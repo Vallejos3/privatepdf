@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { mergePDFs, splitPdf, rotatePdf, watermarkPdf, optimizePdf, getPageCount, parsePageRange, loadPdfSafe } from '@/lib/pdf';
+import { mergePDFs, splitPdf, rotatePdf, watermarkPdf, optimizePdf, getPageCount, parsePageRange, loadPdfSafe, splitPdfAsZip } from '@/lib/pdf';
 import { PDFDocument } from 'pdf-lib';
 
 type Tool = 'merge' | 'split' | 'rotate' | 'watermark' | 'optimize';
@@ -16,6 +16,7 @@ export default function Home() {
   const [pageRange, setPageRange] = useState<string>('');
   const [rotation, setRotation] = useState<number>(90);
   const [watermarkText, setWatermarkText] = useState<string>('DRAFT');
+  const [splitZipBlob, setSplitZipBlob] = useState<Blob | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (tool === 'merge') {
@@ -88,7 +89,23 @@ export default function Home() {
           return;
         }
         setSplitWarning(outOfRange.length > 0 ? `Skipped pages outside 1-${pageCount}.` : '');
-        result = await splitPdf(files[0], pageRange);
+        
+        // Use ZIP for multiple pages, single file for single page
+        if (validPages.length > 1) {
+          const zipBlob = await splitPdfAsZip(files[0], pageRange);
+          setSplitZipBlob(zipBlob);
+          const url = URL.createObjectURL(zipBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `split_${Date.now()}.zip`;
+          a.click();
+          URL.revokeObjectURL(url);
+          setProgress(null);
+          setStatus(`Downloaded ${validPages.length} pages as ZIP.`);
+          return;
+        } else {
+          result = await splitPdf(files[0], pageRange);
+        }
       } else {
         setSplitWarning('');
         switch (tool) {
@@ -262,6 +279,22 @@ export default function Home() {
         >
           Process PDF
         </button>
+
+        {splitZipBlob && tool === 'split' && (
+          <button
+            onClick={() => {
+              const url = URL.createObjectURL(splitZipBlob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `split_pages_${Date.now()}.zip`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="ml-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          >
+            Download All as ZIP
+          </button>
+        )}
 
         {progress && (
           <div className="mt-4 p-2 bg-blue-100 rounded flex items-center">
