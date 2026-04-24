@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { mergePDFs, splitPdf, rotatePdf, watermarkPdf, optimizePdf, getPageCount, parsePageRange } from '@/lib/pdf';
+import { mergePDFs, splitPdf, rotatePdf, watermarkPdf, optimizePdf, getPageCount, parsePageRange, loadPdfSafe } from '@/lib/pdf';
+import { PDFDocument } from 'pdf-lib';
 
 type Tool = 'merge' | 'split' | 'rotate' | 'watermark' | 'optimize';
 
@@ -10,6 +11,7 @@ export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [tool, setTool] = useState<Tool>('merge');
   const [status, setStatus] = useState<string>('');
+  const [progress, setProgress] = useState<string | null>(null);
   const [splitWarning, setSplitWarning] = useState<string>('');
   const [pageRange, setPageRange] = useState<string>('');
   const [rotation, setRotation] = useState<number>(90);
@@ -66,11 +68,13 @@ export default function Home() {
       setStatus('Please select exactly 1 PDF file.');
       return;
     }
-    setStatus('Processing...');
+    setStatus('');
+    setProgress('Processing...');
     try {
       let result: Uint8Array | Blob;
       if (tool === 'split') {
         if (!pageRange) {
+          setProgress(null);
           setStatus('Please enter page range.');
           return;
         }
@@ -79,6 +83,7 @@ export default function Home() {
         const validPages = requestedPages.filter(page => page >= 1 && page <= pageCount);
         const outOfRange = requestedPages.filter(page => page < 1 || page > pageCount);
         if (validPages.length === 0) {
+          setProgress(null);
           setStatus(`Page range does not match any pages. Use 1-${pageCount}.`);
           return;
         }
@@ -88,13 +93,27 @@ export default function Home() {
         setSplitWarning('');
         switch (tool) {
           case 'merge':
-            result = await mergePDFs(files);
+            let totalPages = 0;
+            for (const file of files) {
+              totalPages += await getPageCount(file);
+            }
+            let currentPage = 0;
+            const mergedPdf = await PDFDocument.create();
+            for (const file of files) {
+              const pdf = await loadPdfSafe(file);
+              const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+              pages.forEach(page => mergedPdf.addPage(page));
+              currentPage += pages.length;
+              setProgress(`Processing page ${currentPage} of ${totalPages}`);
+            }
+            result = mergedPdf.save();
             break;
           case 'rotate':
             result = await rotatePdf(files[0], rotation);
             break;
           case 'watermark':
             if (!watermarkText) {
+              setProgress(null);
               setStatus('Please enter watermark text.');
               return;
             }
@@ -114,8 +133,10 @@ export default function Home() {
       a.download = `output_${tool}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      setProgress(null);
       setStatus('Download started.');
     } catch (error) {
+      setProgress(null);
       setStatus(error instanceof Error ? error.message : 'An error occurred.');
     }
   };
@@ -126,7 +147,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
+      <main className="max-w-4xl mx-auto bg-white rounded-lg p-6">
         <h1 className="text-2xl font-bold mb-4">PDF Tool</h1>
         
         <div className="mb-4">
@@ -233,12 +254,19 @@ export default function Home() {
           Process PDF
         </button>
 
+        {progress && (
+          <div className="mt-4 p-2 bg-blue-100 rounded flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+            {progress}
+          </div>
+        )}
+
         {status && (
           <div className="mt-4 p-2 bg-gray-200 rounded">
             {status}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

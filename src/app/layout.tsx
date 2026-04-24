@@ -18,6 +18,27 @@ export const metadata = {
         description: '100% private PDF tools. Merge, split, rotate, and watermark PDFs in your browser. No uploads, no servers, no tracking.',
           keywords: 'pdf merge, pdf split, pdf tools, private pdf, local pdf, no upload pdf',
             robots: 'index, follow',
+            openGraph: {
+              title: 'PrivatePDF - Free Local PDF Tools',
+              description: '100% private PDF tools. Merge, split, rotate, and watermark PDFs in your browser. No uploads, no servers, no tracking.',
+              url: 'https://privatepdf.pages.dev',
+              siteName: 'PrivatePDF',
+              images: [
+                {
+                  url: 'https://privatepdf.pages.dev/og-image.png',
+                  width: 1200,
+                  height: 630,
+                },
+              ],
+              locale: 'en_US',
+              type: 'website',
+            },
+            twitter: {
+              card: 'summary_large_image',
+              title: 'PrivatePDF - Free Local PDF Tools',
+              description: '100% private PDF tools. Merge, split, rotate, and watermark PDFs in your browser. No uploads, no servers, no tracking.',
+              images: ['https://privatepdf.pages.dev/og-image.png'],
+            },
 }
 
 export default function RootLayout({
